@@ -15,6 +15,7 @@ dependencies {
     implementation("commons-codec:commons-codec:_")
     implementation("io.ktor:ktor-client-cio:_")
     implementation("io.ktor:ktor-client-serialization:_")
+    implementation("com.auth0:java-jwt:_")
 
     // HTTP Server
     implementation("io.ktor:ktor-server-core:_")

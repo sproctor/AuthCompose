@@ -1,5 +1,6 @@
 package com.seanproctor.auth.app
 
+import com.auth0.jwt.JWT
 import io.ktor.application.*
 import io.ktor.client.*
 import io.ktor.client.features.json.*
@@ -9,18 +10,34 @@ import io.ktor.routing.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import org.apache.commons.codec.binary.Base64
 import java.awt.Desktop
 import java.net.URI
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 
 class AuthenticationManager {
+
+    private val json = Json { ignoreUnknownKeys = true }
+
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
+
+    private val callbackJob = MutableStateFlow<Job?>(null)
+
+    val isLoggingIn = callbackJob.map { it?.isActive == true }
+
+    private val _userId = MutableStateFlow<String?>(null)
+    val userId = _userId.asStateFlow()
 
     fun authenticateUser(
         domain: String,
@@ -29,7 +46,7 @@ class AuthenticationManager {
         scope: String,
         audience: String,
     ) {
-        coroutineScope.launch {
+        val job = coroutineScope.launch {
             try {
                 val verifier = createVerifier()
                 val challenge = createChallenge(verifier)
@@ -63,6 +80,9 @@ class AuthenticationManager {
                 e.printStackTrace()
             }
         }
+
+        callbackJob.value = job
+        job.invokeOnCompletion { callbackJob.value = null }
     }
 
     private suspend fun getToken(
@@ -86,11 +106,19 @@ class AuthenticationManager {
         }
 
         println("response: $response")
+
+        _userId.value = extractUserId(response.accessToken)
+    }
+
+    private fun extractUserId(token: String): String {
+        val decodedJwt = JWT.decode(token)
+        return decodedJwt.getClaim("sub").asString()
     }
 
     private suspend fun waitForCallback(): String {
-        return suspendCancellableCoroutine { continuation ->
-            var server: NettyApplicationEngine? = null
+        var server: NettyApplicationEngine? = null
+
+        val code = suspendCancellableCoroutine<String> { continuation ->
             server = embeddedServer(Netty, port = 5789) {
                 routing {
                     get ("/callback") {
@@ -99,12 +127,16 @@ class AuthenticationManager {
                         call.respondText("OK")
 
                         continuation.resume(code)
-
-                        server!!.stop(1000L, 1000L)
                     }
                 }
             }.start(wait = false)
         }
+
+        coroutineScope.launch {
+            server!!.stop(1, 5, TimeUnit.SECONDS)
+        }
+
+        return code
     }
 
     private fun createLoginUrl(
@@ -137,6 +169,11 @@ class AuthenticationManager {
         val digest = md.digest()
         return Base64.encodeBase64URLSafeString(digest)
     }
+
+    fun cancelLogin() {
+        callbackJob.value?.cancel()
+        callbackJob.value = null
+    }
 }
 
 @Serializable
@@ -152,4 +189,9 @@ data class TokenResponse(
     val expiresIn: Int,
     @SerialName("token_type")
     val tokenType: String,
+)
+
+@Serializable
+data class JwtPayload(
+    val sub: String
 )
