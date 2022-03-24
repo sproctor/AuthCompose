@@ -17,11 +17,11 @@ fun App() {
     MaterialTheme {
         Button(onClick = {
             authenticationManager.authenticateUser(
-                domain = "",
-                clientId = "",
+                domain = Config.domain,
+                clientId = Config.clientId,
                 redirectUri = "http://localhost:5789/callback",
                 scope = "openid offline_access",
-                audience = "",
+                audience = Config.audience,
             )
         }) {
             Text("Login")

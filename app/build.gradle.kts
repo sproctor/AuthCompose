@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     kotlin("jvm")
     id("org.jetbrains.compose")
+    kotlin("plugin.serialization")
 }
 
 dependencies {
@@ -13,6 +14,11 @@ dependencies {
 
     implementation("commons-codec:commons-codec:_")
     implementation("io.ktor:ktor-client-cio:_")
+    implementation("io.ktor:ktor-client-serialization:_")
+
+    // HTTP Server
+    implementation("io.ktor:ktor-server-core:_")
+    implementation("io.ktor:ktor-server-netty:_")
 }
 
 tasks.withType<KotlinCompile> {
