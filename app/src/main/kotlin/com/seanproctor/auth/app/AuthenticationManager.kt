@@ -15,8 +15,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.Json
 import org.apache.commons.codec.binary.Base64
 import java.awt.Desktop
 import java.net.URI
@@ -27,8 +25,6 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 
 class AuthenticationManager {
-
-    private val json = Json { ignoreUnknownKeys = true }
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
@@ -66,9 +62,7 @@ class AuthenticationManager {
                 }
 
                 val code = waitForCallback()
-
-                println("getting token")
-
+                
                 getToken(
                     domain = domain,
                     clientId = clientId,
@@ -189,9 +183,4 @@ data class TokenResponse(
     val expiresIn: Int,
     @SerialName("token_type")
     val tokenType: String,
-)
-
-@Serializable
-data class JwtPayload(
-    val sub: String
 )
